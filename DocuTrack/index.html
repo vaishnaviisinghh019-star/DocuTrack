@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DocuTrack</title>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="wrap">
+
+<section id="auth" class="auth" hidden>
+  <div class="logo"><i>D</i>DocuTrack</div>
+  <h1>Never miss a renewal.</h1>
+  <p>Keep your ID card, certificates and licences in one place and see what needs attention first.</p>
+  <div class="card">
+    <div class="tabs" role="tablist">
+      <button class="btn sm" id="tLogin" type="button">Log in</button>
+      <button class="btn sm ghost" id="tReg" type="button">Create account</button>
+    </div>
+    <div id="nameBox" hidden><label for="name">Your name</label><input id="name" autocomplete="name"></div>
+    <label for="email">Email</label><input id="email" type="email" autocomplete="email">
+    <label for="pw">Password (6+ characters)</label><input id="pw" type="password" autocomplete="current-password">
+    <p class="msg" id="authMsg" role="alert"></p>
+    <button class="btn" id="authGo" type="button" style="width:100%;margin-top:6px">Log in</button>
+  </div>
+  <p class="meta" style="margin-top:14px">Accounts and documents are saved only in this browser on this device.</p>
+</section>
+
+<section id="app" hidden>
+  <div class="top">
+    <div class="logo"><i>D</i>DocuTrack</div>
+    <div><span class="meta" id="hello"></span> <button class="btn ghost sm" id="out" type="button">Log out</button></div>
+  </div>
+
+  <div id="remind"></div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="card">
+    <h2 style="margin-bottom:4px">Add a document</h2>
+    <div class="row">
+      <div><label for="dn">Document name</label><input id="dn" placeholder="e.g. Student ID card"></div>
+      <div><label for="dt">Type</label>
+        <select id="dt"><option>Identity card</option><option>Certificate</option><option>Licence</option><option>Library or hostel card</option><option>Visa or permit</option><option>Other</option></select></div>
+      <div><label for="dx">Expiry date</label><input id="dx" type="date"></div>
+      <div><label for="dr">Remind me</label>
+        <select id="dr"><option value="7">7 days before</option><option value="15">15 days before</option><option value="30" selected>30 days before</option><option value="60">60 days before</option></select></div>
+    </div>
+    <p class="msg" id="addMsg" role="alert"></p>
+    <button class="btn" id="add" type="button">Save document</button>
+  </div>
+
+  <div class="bar">
+    <h2>Your documents</h2>
+    <div class="filters" id="filters"></div>
+  </div>
+  <ul class="docs" id="list"></ul>
+</section>
+
+</div>
+
+<dialog id="dlg">
+  <h3 id="dlgT">Mark as renewed</h3>
+  <p class="meta" id="dlgS"></p>
+  <label for="nx">New expiry date</label><input id="nx" type="date">
+  <p class="msg" id="dlgMsg" role="alert"></p>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+    <button class="btn ghost sm" id="dlgNo" type="button">Cancel</button>
+    <button class="btn sm" id="dlgOk" type="button">Save renewal</button>
+  </div>
+</dialog>
+
+<script src="js/app.js"></script>
+</body>
+</html>
