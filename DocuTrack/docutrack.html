@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DocuTrack</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bitter:wght@500;700&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f3f5f2; --card:#ffffff; --ink:#1d2b2a; --muted:#5f6f6c; --line:#d5dcd8;
+    --teal:#0f5c5c; --teal-soft:#dcebe9; --stamp:#b3361f;
+    --s-received:#3b6ea5; --s-review:#b7791f; --s-approved:#2f7d4f; --s-rejected:#b3361f; --s-dispatched:#5b4b8a;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --paper:#141b1b; --card:#1c2625; --ink:#e8efed; --muted:#9db0ac; --line:#32413f; --teal:#5fb3ad; --teal-soft:#223735; --stamp:#e8735c; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 "Public Sans",system-ui,sans-serif}
+  header{padding:28px 24px 8px;max-width:1000px;margin:0 auto}
+  h1{font:700 2rem "Bitter",serif;margin:0;letter-spacing:-.01em}
+  header p{margin:4px 0 0;color:var(--muted)}
+  main{max-width:1000px;margin:0 auto;padding:16px 24px 64px;display:grid;gap:20px;grid-template-columns:1fr}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:20px}
+  h2{font:700 1.15rem "Bitter",serif;margin:0 0 14px}
+  form{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+  form .wide{grid-column:1/-1}
+  label{display:grid;gap:4px;font-size:.875rem;font-weight:500}
+  input,select,textarea{font:inherit;padding:9px 10px;border:1px solid var(--line);border-radius:4px;background:var(--paper);color:var(--ink)}
+  input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--teal);outline-offset:1px}
+  button{font:600 .95rem "Public Sans",sans-serif;padding:9px 16px;border-radius:4px;border:1px solid var(--teal);background:var(--teal);color:#fff;cursor:pointer}
+  @media (prefers-color-scheme: dark){ button{color:#10201f} }
+  button.ghost{background:transparent;color:var(--teal)}
+  button.danger{border-color:var(--stamp);background:transparent;color:var(--stamp)}
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .toolbar input{flex:1;min-width:200px}
+  .list{display:grid;gap:10px}
+  .doc{border:1px solid var(--line);border-left:5px solid var(--c,var(--teal));border-radius:4px;padding:14px;display:grid;gap:6px;cursor:pointer;background:var(--card)}
+  .doc:hover{background:var(--teal-soft)}
+  .row{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline}
+  .ref{font-weight:600;color:var(--muted);font-size:.85rem}
+  .title{font:700 1.05rem "Bitter",serif}
+  .meta{color:var(--muted);font-size:.875rem}
+  .badge{font-size:.8rem;font-weight:600;padding:2px 10px;border-radius:99px;color:#fff;background:var(--c)}
+  .empty{padding:28px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:4px}
+  dialog{border:1px solid var(--line);border-radius:6px;padding:22px;max-width:560px;width:92%;background:var(--card);color:var(--ink)}
+  dialog::backdrop{background:rgba(0,0,0,.45)}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .timeline{list-style:none;margin:14px 0 0;padding:0 0 0 14px;border-left:2px solid var(--line)}
+  .timeline li{margin:0 0 12px;padding-left:12px;position:relative}
+  .timeline li::before{content:"";position:absolute;left:-21px;top:7px;width:10px;height:10px;border-radius:50%;background:var(--teal)}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 18px;border-radius:4px;display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>DocuTrack</h1>
+  <p>Register a document, then follow it from desk to desk.</p>
+</header>
+<main>
+  <section class="panel">
+    <h2>Register a document</h2>
+    <form id="addForm">
+      <label>Title<input name="title" required placeholder="e.g. Land survey report"></label>
+      <label>Sender<input name="sender" placeholder="Who sent it"></label>
+      <label>Department<input name="department" placeholder="e.g. Revenue"></label>
+      <label>Currently with<input name="holder" placeholder="Person or desk"></label>
+      <label class="wide">Notes<textarea name="notes" rows="2"></textarea></label>
+      <div class="wide"><button type="submit">Register document</button></div>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>All documents</h2>
+    <div class="toolbar">
+      <input id="search" type="search" placeholder="Search by reference, title, sender or holder">
+      <select id="statusFilter"><option value="">All statuses</option></select>
+    </div>
+    <div id="list" class="list"></div>
+  </section>
+</main>
+
+<dialog id="detail"></dialog>
+<div class="toast" id="toast"></div>
+
+<script>
+const COLORS = {"Received":"var(--s-received)","In review":"var(--s-review)","Approved":"var(--s-approved)","Rejected":"var(--s-rejected)","Dispatched":"var(--s-dispatched)"};
+const $ = s => document.querySelector(s);
+let statuses = [];
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt = iso => new Date(iso).toLocaleString([], {dateStyle:"medium", timeStyle:"short"});
+
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.style.display="block"; setTimeout(()=>t.style.display="none",2200); }
+
+const STATUSES = ["Received","In review","Approved","Rejected","Dispatched"];
+const KEY = "docutrack_data";
+let memory = null;
+function load(){
+  try { return JSON.parse(localStorage.getItem(KEY)) || {counter:0, docs:[]}; }
+  catch { return memory || {counter:0, docs:[]}; }
+}
+function save(db){
+  memory = db;
+  try { localStorage.setItem(KEY, JSON.stringify(db)); } catch {}
+}
+const nowIso = () => new Date().toISOString();
+
+// Local "backend": same routes as before, stored in this browser.
+async function api(url, opts = {}){
+  const method = (opts.method || "GET").toUpperCase();
+  const b = opts.body ? JSON.parse(opts.body) : {};
+  const u = new URL(url, "http://x");
+  const db = load();
+  const m = u.pathname.match(/^\/api\/documents\/([^/]+)$/);
+
+  if(u.pathname === "/api/statuses") return STATUSES;
+
+  if(u.pathname === "/api/documents" && method === "GET"){
+    const term = (u.searchParams.get("q") || "").toLowerCase();
+    const status = u.searchParams.get("status") || "";
+    return db.docs
+      .filter(d => (!status || d.status === status) &&
+        (!term || [d.ref,d.title,d.department,d.holder,d.sender].join(" ").toLowerCase().includes(term)))
+      .sort((a,c) => c.updatedAt.localeCompare(a.updatedAt));
+  }
+  if(u.pathname === "/api/documents" && method === "POST"){
+    if(!b.title || !b.title.trim()) throw new Error("Title is required");
+    db.counter += 1;
+    const holder = (b.holder || "").trim();
+    const doc = {
+      id: String(Date.now()), ref: "DOC-" + String(db.counter).padStart(4,"0"),
+      title: b.title.trim(), sender: (b.sender||"").trim(), department: (b.department||"").trim(),
+      holder, notes: (b.notes||"").trim(), status: "Received", createdAt: nowIso(), updatedAt: nowIso(),
+      history: [{at: nowIso(), status: "Received", holder, note: "Document registered"}]
+    };
+    db.docs.push(doc); save(db); return doc;
+  }
+  if(m){
+    const doc = db.docs.find(d => d.id === m[1]);
+    if(!doc) throw new Error("Document not found");
+    if(method === "GET") return doc;
+    if(method === "PATCH"){
+      if(b.status) doc.status = b.status;
+      if(b.holder !== undefined) doc.holder = b.holder.trim();
+      doc.updatedAt = nowIso();
+      doc.history.push({at: nowIso(), status: doc.status, holder: doc.holder, note: (b.note||"").trim()});
+      save(db); return doc;
+    }
+    if(method === "DELETE"){ db.docs = db.docs.filter(d => d !== doc); save(db); return {ok:true}; }
+  }
+  throw new Error("Not found");
+}
+
+async function loadList(){
+  const q = encodeURIComponent($("#search").value), s = encodeURIComponent($("#statusFilter").value);
+  const docs = await api(`/api/documents?q=${q}&status=${s}`);
+  $("#list").innerHTML = docs.length ? docs.map(d => `
+    <article class="doc" style="--c:${COLORS[d.status]}" data-id="${d.id}" tabindex="0">
+      <div class="row"><span class="ref">${esc(d.ref)}</span><span class="badge" style="--c:${COLORS[d.status]}">${esc(d.status)}</span></div>
+      <div class="title">${esc(d.title)}</div>
+      <div class="meta">With ${esc(d.holder || "unassigned")} · ${esc(d.department || "no department")} · updated ${fmt(d.updatedAt)}</div>
+    </article>`).join("") : `<div class="empty">No documents yet. Register one above to start tracking.</div>`;
+}
+
+async function openDetail(id){
+  const d = await api(`/api/documents/${id}`);
+  $("#detail").innerHTML = `
+    <div class="row"><span class="ref">${esc(d.ref)}</span><span class="badge" style="--c:${COLORS[d.status]}">${esc(d.status)}</span></div>
+    <h2 style="margin-top:6px">${esc(d.title)}</h2>
+    <p class="meta">From ${esc(d.sender || "unknown")} · ${esc(d.department || "no department")}<br>${esc(d.notes)}</p>
+    <form id="moveForm">
+      <label>Status<select name="status">${statuses.map(s=>`<option ${s===d.status?"selected":""}>${s}</option>`).join("")}</select></label>
+      <label>Currently with<input name="holder" value="${esc(d.holder)}"></label>
+      <label class="wide">Note<input name="note" placeholder="What happened?"></label>
+      <div class="wide actions">
+        <button type="submit">Save update</button>
+        <button type="button" class="ghost" id="closeBtn">Close</button>
+        <button type="button" class="danger" id="delBtn">Delete document</button>
+      </div>
+    </form>
+    <ul class="timeline">${[...d.history].reverse().map(h=>`
+      <li><strong>${esc(h.status)}</strong> · ${esc(h.holder || "unassigned")}<br>
+      <span class="meta">${fmt(h.at)}${h.note ? " · " + esc(h.note) : ""}</span></li>`).join("")}</ul>`;
+  $("#detail").showModal();
+  $("#closeBtn").onclick = () => $("#detail").close();
+  $("#moveForm").onsubmit = async e => {
+    e.preventDefault();
+    try{
+      await api(`/api/documents/${id}`, {method:"PATCH", body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});
+      $("#detail").close(); toast("Update saved"); loadList();
+    }catch(err){ toast(err.message); }
+  };
+  $("#delBtn").onclick = async () => {
+    if(!confirm("Delete this document and its history?")) return;
+    await api(`/api/documents/${id}`, {method:"DELETE"});
+    $("#detail").close(); toast("Document deleted"); loadList();
+  };
+}
+
+$("#addForm").onsubmit = async e => {
+  e.preventDefault();
+  try{
+    const d = await api("/api/documents", {method:"POST", body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});
+    e.target.reset(); toast(`${d.ref} registered`); loadList();
+  }catch(err){ toast(err.message); }
+};
+$("#list").addEventListener("click", e => { const c=e.target.closest(".doc"); if(c) openDetail(c.dataset.id); });
+$("#list").addEventListener("keydown", e => { if(e.key==="Enter"){ const c=e.target.closest(".doc"); if(c) openDetail(c.dataset.id); }});
+$("#search").addEventListener("input", loadList);
+$("#statusFilter").addEventListener("change", loadList);
+
+(async()=>{
+  statuses = await api("/api/statuses");
+  $("#statusFilter").innerHTML += statuses.map(s=>`<option>${s}</option>`).join("");
+  loadList();
+})();
+</script>
+</body>
+</html>
